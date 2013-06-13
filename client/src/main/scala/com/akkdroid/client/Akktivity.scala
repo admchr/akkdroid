@@ -85,6 +85,7 @@ class Akktivity extends Activity {
         adapter.notifyDataSetChanged()
       })
       localActor = system.actorOf(Props(newLocalActor), name = "mobile-actor")
+      //system.actorOf(Props[ClientActor], name="client-actor")
     }
 
     val newServiceURL = loadServiceURL()
