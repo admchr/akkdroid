@@ -5,12 +5,14 @@ import android.os.{Handler, Bundle}
 import akka.actor.{ActorSelection, Props, ActorRef, ActorSystem}
 import android.widget._
 import java.{lang => jl, util => ju}
-import android.content.Intent
+import android.content.{Context, Intent}
 import android.preference.PreferenceManager
 import java.net.NetworkInterface
 import scala.collection.JavaConverters._
 import com.typesafe.config.{ConfigValueFactory, ConfigFactory}
 import com.akkdroid.util.EnumerationIterator
+import android.net.wifi.WifiManager
+import android.util.Log
 
 class Akktivity extends Activity {
 
@@ -20,6 +22,7 @@ class Akktivity extends Activity {
   private var serviceURL: String = null
   private var adapter: ArrayAdapter[String] = null
   private var localActor: ActorRef = null
+  private var clientActor: ActorRef = null
   private var serverActor: ActorSelection = null
 
   private var messageTextView: TextView = null
@@ -30,8 +33,10 @@ class Akktivity extends Activity {
   override def onCreate(savedInstanceState: Bundle) {
     super.onCreate(savedInstanceState)
 
+    Log.e("zyx", "ONCREATE")
     setContentView(R.layout.main)
     loadUI()
+    initializeMulticast()
 
     val items = new ju.ArrayList[String]
     adapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, items)
@@ -41,16 +46,21 @@ class Akktivity extends Activity {
 
     sendButton.onClickAsync { _ =>
       implicit val sender = localActor // impersonate our local actor so it can receive responses from server
-      serverActor ! messageTextView.getText.toString
+      clientActor ! "whateverz"
+      //serverActor ! messageTextView.getText.toString
+
     }
     settingsButton.onClick { _ =>
       startActivity(new Intent(getBaseContext, classOf[AkkdroidPreferences]))
     }
+    Log.e("zyx", "!ONCREATE")
   }
 
   override def onStart() {
     super.onStart()
+    Log.e("zyx", "ONSTART")
     initializeActors()
+    Log.e("zyx", "!ONSTART")
   }
 
   override def onResume() {
@@ -84,6 +94,14 @@ class Akktivity extends Activity {
         iface.getInetAddresses.nextElement().getHostAddress
     }
 
+  private def initializeMulticast() {
+    val wifi = getSystemService(Context.WIFI_SERVICE ).asInstanceOf[WifiManager]
+    if(wifi != null){
+      val lock = wifi.createMulticastLock("Log_Tag")
+      lock.acquire();
+    }
+  }
+
   private def initializeActors() {
     if (system == null) {
       val inetAddress = getInetAddress.getOrElse(throw new Exception("No public IP address found!"))
@@ -98,6 +116,7 @@ class Akktivity extends Activity {
         adapter.notifyDataSetChanged()
       })
       localActor = system.actorOf(Props(newLocalActor), name = "mobile-actor")
+      clientActor = system.actorOf(Props[ClientActor], name = "client-actor")
     }
 
     val newServiceURL = loadServiceURL()
